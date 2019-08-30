@@ -60,7 +60,7 @@ def step(index, player):
 
 
 # board = np.array([[1,1,-1], [0,-1,0], [-1,0,0]])
-new_game()
-print(step(2, 1))
-print(board)
-print(step(2, 1))
+# new_game()
+# print(step(2, 1))
+# print(board)
+# print(step(2, 1))
