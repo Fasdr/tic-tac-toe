@@ -38,14 +38,19 @@ def deep_q_learning_step(epsilon, player):
     index = epsilon_greedy(epsilon, player)
     q_value = (model(torch.FloatTensor(game.board))[(player+2)%3])[index]
     a_p, reward = game.step(index, player)
-    while a_p != player and abs(a_p) != 10 and not game.full_board():
-        index = epsilon_greedy(1/2, a_p)
-        a_p, _ = game.step(index, a_p)
     if abs(a_p) == 10 or game.full_board():
-        loss = 1/2*(reward - q_value)**2
+        loss = 1 / 2 * (reward - q_value) ** 2
     else:
-        q_value_max = (model(torch.FloatTensor(game.board) * player)[(a_p+2)%3]).max()
-        loss = 1/2*(reward + GAMMA*q_value_max - q_value)**2
+        while a_p != player and abs(a_p) != 10 and not game.full_board():
+            index = epsilon_greedy(1/6, a_p)
+            a_p, _ = game.step(index, a_p)
+        if abs(a_p) == 10:
+            loss = 1/2*(reward - 1000 - q_value)**2
+        elif game.full_board():
+            loss = 1/2 * (reward + 100 - q_value) ** 2
+        else:
+            q_value_max = (model(torch.FloatTensor(game.board) * player)[(a_p+2)%3]).max()
+            loss = 1/2*(reward + GAMMA*q_value_max - q_value)**2
     optimizer.zero_grad()
     loss.backward()
     optimizer.step()

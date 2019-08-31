@@ -44,14 +44,17 @@ def new_game():
     board = np.zeros((3, 3))
 
 def step(index, player):
-    reward = -1
+    reward = -0.1
     (x, y) = (index // 3, index % 3)
-    board[x, y] = player
+    if board[x, y] == 0:
+        board[x, y] = player
+    else:
+        reward = -100
     a_p = active_player()
     if abs(a_p) == 10:
-        reward = reward + 40
+        reward = reward + 100
     elif full_board():
-        reward = reward + 20
+        reward = reward + 100
     return a_p, reward
 
 
