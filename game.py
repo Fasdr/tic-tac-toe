@@ -1,7 +1,8 @@
 import numpy as np
 
 board = None
-steps = None
+def full_board():
+    return np.where(board == 0, 0, 1).sum() == 9
 
 def winner():
     for row in board:
@@ -40,22 +41,17 @@ def active_player():
 
 def new_game():
     global board
-    global steps
     board = np.zeros((3, 3))
-    steps = 0
 
 def step(index, player):
-    global steps
-    reward = -0.1
+    reward = -1
     (x, y) = (index // 3, index % 3)
-    if board[x, y] == 0:
-        steps = steps + 1
-        board[x, y] = player
-    else:
-        reward = reward - 10
+    board[x, y] = player
     a_p = active_player()
     if abs(a_p) == 10:
-        reward = reward + 1
+        reward = reward + 40
+    elif full_board():
+        reward = reward + 20
     return a_p, reward
 
 
