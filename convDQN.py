@@ -3,24 +3,29 @@ import torch.nn as nn
 import torch.optim as optim
 import torch.nn.functional as F
 import numpy as np
+import matplotlib.pyplot as plt
 import game
+
+conv_size = 20
+reshape_size = conv_size * 3
+input_layer_size = conv_size * 8
 
 class DQN(nn.Module):
     def __init__(self):
         super(DQN, self).__init__()
-        self.conv1 = nn.Conv2d(1, 30, (3, 1))
-        self.conv2 = nn.Conv2d(1, 30, (1, 3))
-        self.lin1 = nn.Linear(3, 30)
-        self.lin2 = nn.Linear(3, 30)
-        # 30*3+30*3+30+30
-        self.lin3 = nn.Linear(240, 9)
-        self.lin4 = nn.Linear(240, 9)
+        self.conv1 = nn.Conv2d(1, conv_size, (3, 1))
+        self.conv2 = nn.Conv2d(1, conv_size, (1, 3))
+        self.lin1 = nn.Linear(3, conv_size)
+        self.lin2 = nn.Linear(3, conv_size)
+        self.lin5 = nn.Linear(input_layer_size, input_layer_size)
+        self.lin3 = nn.Linear(input_layer_size, 9)
+        self.lin4 = nn.Linear(input_layer_size, 9)
     def forward(self, x):
         y = x.reshape(1, 1, 3, 3)
         out1 = self.conv1(y)
         out2 = self.conv2(y)
-        out1 = out1.view(-1, self.num_flat_features(out1))
-        out2 = out2.view(-1, self.num_flat_features(out2))
+        out1 = out1.reshape(reshape_size)
+        out2 = out2.reshape(reshape_size)
         d1 = x.diagonal()
         d2 = x.rot90(1, (1, 0)).diagonal()
         out3 = self.lin1(d1)
@@ -30,21 +35,23 @@ class DQN(nn.Module):
         mask2 = 1 - mask1
         mask1 = mask1
         pred = F.relu(torch.cat((out1, out2, out3, out4), dim=0))
+        pred = F.relu(self.lin5(pred))
         fout1 = F.relu(self.lin3(pred))
         fout2 = F.relu(self.lin4(pred))
         return mask2*fout1 - mask1, mask2*fout2 - mask1
-    def num_flat_features(self, x):
-        size = x.size()[1:]  # all dimensions except the batch dimension
-        num_features = 1
-        for s in size:
-            num_features *= s
-        return num_features
 
-GAMMA = 0.75
-ALPHA = 0.0005
+GAMMA = 0.7
+ALPHA = 0.001
 model = DQN()
 optimizer = optim.SGD(model.parameters(), lr=ALPHA)
 loss_for_one_episode = 0
+loss_for_sever_episodes = 0
+in_eps = 1/2
+agr = 1/20
+runs = 100000
+with_graph = True
+graph = []
+big_step = 100
 
 def epsilon_greedy(epsilon, player):
     if np.random.rand(1).item() <= epsilon:
@@ -61,18 +68,18 @@ def deep_q_learning_step(epsilon, player):
     q_value = (model(torch.FloatTensor(game.board))[(player+2)%3])[index]
     a_p, reward = game.step(index, player)
     if abs(a_p) == 10 or game.full_board():
-        loss = torch.abs(reward - q_value)
+        loss = ((reward - q_value)**2)
     else:
         while a_p != player and abs(a_p) != 10 and not game.full_board():
-            index = epsilon_greedy(1/10, a_p)
+            index = epsilon_greedy(agr, a_p)
             a_p, _ = game.step(index, a_p)
         if abs(a_p) == 10:
-            loss = torch.abs(reward - 15 - q_value)
+            loss = ((reward - 17 - q_value)**2)
         elif game.full_board():
-            loss = torch.abs(reward + 6 - q_value)
+            loss = ((reward - 5 - q_value)**2)
         else:
             q_value_max = (model(torch.FloatTensor(game.board) * player)[(a_p+2)%3]).max()
-            loss = torch.abs(reward + GAMMA*q_value_max - q_value)
+            loss = ((reward + GAMMA*q_value_max - q_value)**2)
     optimizer.zero_grad()
     loss.backward()
     optimizer.step()
@@ -105,7 +112,7 @@ def test():
 
 def one_episode(epsilon, player):
     game.new_game()
-    global loss_for_one_episode
+    global loss_for_one_episode, loss_for_sever_episodes
     loss_for_one_episode = 0
     if player == 1:
         while abs(player) != 10 and not game.full_board():
@@ -116,10 +123,22 @@ def one_episode(epsilon, player):
         while abs(player) != 10 and not game.full_board():
             player = deep_q_learning_step(epsilon, player)
     print(loss_for_one_episode)
+    loss_for_sever_episodes += loss_for_one_episode
 
-for i in range(10):
-    print(i)
-    one_episode(1/2, i%2)
 
-while True:
-    play_with()
+for i in range(1, runs+1):
+    one_episode(in_eps, i%2)
+    if i%big_step == 0:
+        print(i)
+        graph.append(loss_for_sever_episodes/big_step)
+        # print(loss_for_sever_episodes/big_step)
+        loss_for_sever_episodes = 0
+
+if not with_graph:
+    while True:
+        play_with()
+if with_graph:
+    plt.plot(range(10, runs+1, big_step), graph)
+    plt.axis([0, runs+1, 0, 500])
+    plt.show()
+    print(len(graph))

@@ -2,8 +2,8 @@ import numpy as np
 
 board = None
 steps = None
-steps_reward = [-2, -1, 0, 2, 4, 4, 2, 0, -1, -2]
-0
+steps_reward = [-3, -2, 0, 4, 3, 2, 1, -2, -2, -2]
+
 def full_board():
     return np.where(board == 0, 0, 1).sum() == 9
 
@@ -59,9 +59,9 @@ def step(index, player):
         reward = reward - 1
     a_p = active_player()
     if abs(a_p) == 10:
-        reward = reward + 15
+        reward = reward + 17
     elif full_board():
-        reward = reward + 6
+        reward = reward - 5
     return a_p, reward
 
 
