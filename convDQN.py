@@ -8,18 +8,37 @@ import game
 class DQN(nn.Module):
     def __init__(self):
         super(DQN, self).__init__()
-        self.lin1 = nn.Linear(9, 1000)
-        self.lin2 = nn.Linear(1000, 9)
-        self.lin3 = nn.Linear(1000, 9)
+        self.conv1 = nn.Conv2d(1, 30, (3, 1))
+        self.conv2 = nn.Conv2d(1, 30, (1, 3))
+        self.lin1 = nn.Linear(3, 30)
+        self.lin2 = nn.Linear(3, 30)
+        # 30*3+30*3+30+30
+        self.lin3 = nn.Linear(240, 9)
+        self.lin4 = nn.Linear(240, 9)
     def forward(self, x):
+        y = x.reshape(1, 1, 3, 3)
+        out1 = self.conv1(y)
+        out2 = self.conv2(y)
+        out1 = out1.view(-1, self.num_flat_features(out1))
+        out2 = out2.view(-1, self.num_flat_features(out2))
+        d1 = x.diagonal()
+        d2 = x.rot90(1, (1, 0)).diagonal()
+        out3 = self.lin1(d1)
+        out4 = self.lin1(d2)
         x = x.reshape(9)
         mask1 = torch.where(x == 0, x * 0, x * 0 + 1)
         mask2 = 1 - mask1
         mask1 = mask1
-        x = F.relu(self.lin1(x))
-        out1 = F.relu(self.lin2(x))
-        out2 = F.relu(self.lin3(x))
-        return mask2*out1 - mask1, mask2*out2 - mask1
+        pred = F.relu(torch.cat((out1, out2, out3, out4), dim=0))
+        fout1 = F.relu(self.lin3(pred))
+        fout2 = F.relu(self.lin4(pred))
+        return mask2*fout1 - mask1, mask2*fout2 - mask1
+    def num_flat_features(self, x):
+        size = x.size()[1:]  # all dimensions except the batch dimension
+        num_features = 1
+        for s in size:
+            num_features *= s
+        return num_features
 
 GAMMA = 0.75
 ALPHA = 0.0005
@@ -57,7 +76,6 @@ def deep_q_learning_step(epsilon, player):
     optimizer.zero_grad()
     loss.backward()
     optimizer.step()
-    # print(loss)
     loss_for_one_episode = loss_for_one_episode + loss
 
     return a_p
@@ -97,15 +115,11 @@ def one_episode(epsilon, player):
         player, _ = game.step(index, player)
         while abs(player) != 10 and not game.full_board():
             player = deep_q_learning_step(epsilon, player)
-    # print(game.board)
-    # print(game.winner())
     print(loss_for_one_episode)
 
-for i in range(1000000):
+for i in range(10):
     print(i)
     one_episode(1/2, i%2)
 
-# print("try")
-# test()
 while True:
     play_with()
